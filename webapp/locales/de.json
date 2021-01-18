@@ -594,13 +594,18 @@
   },
   "search": {
     "failed": "Nichts gefunden",
+    "for": "Suche nach ",
     "heading": {
-      "Post": "Beiträge",
-      "Tag": "Hashtags",
-      "User": "Benutzer"
+      "Post": "Beitrag ::: Beiträge",
+      "Tag": "Hashtag ::: Hashtags",
+      "User": "Benutzer ::: Benutzer"
     },
     "hint": "Wonach suchst Du?",
-    "placeholder": "Suchen"
+    "no-results": "Keine Ergebnisse für \"{search}\" gefunden. Versuch' es mit einem anderen Begriff!",
+    "page": "Seite",
+    "placeholder": "Suchen",
+    "results": "Ergebnis gefunden ::: Ergebnisse gefunden",
+    "title": "Suchergebnisse"
   },
   "settings": {
     "blocked-users": {

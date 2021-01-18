@@ -1,5 +1,23 @@
 union SearchResult = Post | User | Tag
 
+type postSearchResults {
+  postCount: Int
+  posts: [Post]!
+}
+
+type userSearchResults {
+  userCount: Int
+  users: [User]!
+}
+
+type hashtagSearchResults {
+  hashtagCount: Int
+  hashtags: [Tag]!
+}
+
 type Query {
-  findResources(query: String!, limit: Int = 5): [SearchResult]!
+  searchPosts(query: String!, firstPosts: Int, postsOffset: Int): postSearchResults!
+  searchUsers(query: String!, firstUsers: Int, usersOffset: Int): userSearchResults!
+  searchHashtags(query: String!, firstHashtags: Int, hashtagsOffset: Int): hashtagSearchResults!
+  searchResults(query: String!, limit: Int = 5): [SearchResult]!
 }

@@ -107,15 +107,12 @@ export default {
         this.$emit('query', this.value)
       }, this.delay)
     },
-    /**
-     * TODO: on enter we should go to a dedicated search page!?
-     */
     onEnter(event) {
-      clearTimeout(this.searchProcess)
-      if (!this.loading) {
-        this.previousSearchTerm = this.unprocessedSearchInput
-        this.$emit('query', this.unprocessedSearchInput)
-      }
+      this.$router.push({
+        path: '/search/search-results',
+        query: { search: this.unprocessedSearchInput },
+      })
+      this.$emit('clearSearch')
     },
     onDelete(event) {
       clearTimeout(this.searchProcess)

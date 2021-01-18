@@ -29,7 +29,7 @@ afterAll(async () => {
 
 const searchQuery = gql`
   query($query: String!) {
-    findResources(query: $query, limit: 5) {
+    searchResults(query: $query, limit: 5) {
       __typename
       ... on Post {
         id
@@ -47,6 +47,21 @@ const searchQuery = gql`
     }
   }
 `
+
+const searchPostQuery = gql`
+  query($query: String!, $firstPosts: Int, $postsOffset: Int) {
+    searchPosts(query: $query, firstPosts: $firstPosts, postsOffset: $postsOffset) {
+      postCount
+      posts {
+        __typename
+        id
+        title
+        content
+      }
+    }
+  }
+`
+
 describe('resolvers/searches', () => {
   let variables
 
@@ -65,7 +80,7 @@ describe('resolvers/searches', () => {
         variables = { query: 'John' }
         await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
           data: {
-            findResources: [
+            searchResults: [
               {
                 id: 'a-user',
                 name: 'John Doe',
@@ -95,7 +110,7 @@ describe('resolvers/searches', () => {
           variables = { query: 'beitrag' }
           await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
             data: {
-              findResources: [
+              searchResults: [
                 {
                   __typename: 'Post',
                   id: 'a-post',
@@ -114,7 +129,7 @@ describe('resolvers/searches', () => {
           variables = { query: 'BEITRAG' }
           await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
             data: {
-              findResources: [
+              searchResults: [
                 {
                   __typename: 'Post',
                   id: 'a-post',
@@ -132,7 +147,7 @@ describe('resolvers/searches', () => {
         it('returns empty search results', async () => {
           await expect(
             query({ query: searchQuery, variables: { query: 'Unfug' } }),
-          ).resolves.toMatchObject({ data: { findResources: [] } })
+          ).resolves.toMatchObject({ data: { searchResults: [] } })
         })
       })
 
@@ -189,7 +204,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: 'beitrag' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: expect.arrayContaining([
+                  searchResults: expect.arrayContaining([
                     {
                       __typename: 'Post',
                       id: 'a-post',
@@ -216,7 +231,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: 'tee-ei' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'g-post',
@@ -235,7 +250,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: '„teeei“' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'g-post',
@@ -256,7 +271,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: '(a - b)²' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'c-post',
@@ -277,7 +292,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: '(a-b)²' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'c-post',
@@ -298,7 +313,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: '+ b² 2.' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'c-post',
@@ -321,7 +336,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: 'der panther' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: [
+                  searchResults: [
                     {
                       __typename: 'Post',
                       id: 'd-post',
@@ -349,7 +364,7 @@ und hinter tausend Stäben keine Welt.`,
               variables = { query: 'Vorü Subs' }
               await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
                 data: {
-                  findResources: expect.arrayContaining([
+                  searchResults: expect.arrayContaining([
                     {
                       __typename: 'Post',
                       id: 'd-post',
@@ -395,7 +410,7 @@ und hinter tausend Stäben keine Welt.`,
             variables = { query: '-maria-' }
             await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
               data: {
-                findResources: expect.arrayContaining([
+                searchResults: expect.arrayContaining([
                   {
                     __typename: 'User',
                     id: 'c-user',
@@ -407,6 +422,128 @@ und hinter tausend Stäben keine Welt.`,
                     id: 'd-user',
                     name: 'Erich Maria Remarque',
                     slug: 'erich-maria-remarque',
+                  },
+                ]),
+              },
+              errors: undefined,
+            })
+          })
+        })
+      })
+
+      describe('adding a user and a hashtag with a name that is content of a post', () => {
+        beforeAll(async () => {
+          await Promise.all([
+            Factory.build('user', {
+              id: 'f-user',
+              name: 'Peter Panther',
+              slug: 'peter-panther',
+            }),
+            await Factory.build('tag', { id: 'Panther' }),
+          ])
+        })
+
+        describe('query the word that contains the post, the hashtag and the name of the user', () => {
+          it('finds the user, the post and the hashtag', async () => {
+            variables = { query: 'panther' }
+            await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
+              data: {
+                searchResults: expect.arrayContaining([
+                  {
+                    __typename: 'User',
+                    id: 'f-user',
+                    name: 'Peter Panther',
+                    slug: 'peter-panther',
+                  },
+                  {
+                    __typename: 'Post',
+                    id: 'd-post',
+                    title: 'Der Panther',
+                    content: `Sein Blick ist vom Vorübergehn der Stäbe<br>
+so müd geworden, daß er nichts mehr hält.<br>
+Ihm ist, als ob es tausend Stäbe gäbe<br>
+und hinter tausend Stäben keine Welt.`,
+                  },
+                  {
+                    __typename: 'Tag',
+                    id: 'Panther',
+                  },
+                ]),
+              },
+              errors: undefined,
+            })
+          })
+        })
+
+        describe('@query the word that contains the post, the hashtag and the name of the user', () => {
+          it('only finds the user', async () => {
+            variables = { query: '@panther' }
+            await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
+              data: {
+                searchResults: expect.not.arrayContaining([
+                  {
+                    __typename: 'Post',
+                    id: 'd-post',
+                    title: 'Der Panther',
+                    content: `Sein Blick ist vom Vorübergehn der Stäbe<br>
+so müd geworden, daß er nichts mehr hält.<br>
+Ihm ist, als ob es tausend Stäbe gäbe<br>
+und hinter tausend Stäben keine Welt.`,
+                  },
+                  {
+                    __typename: 'Tag',
+                    id: 'Panther',
+                  },
+                ]),
+              },
+              errors: undefined,
+            })
+          })
+        })
+
+        describe('!query the word that contains the post, the hashtag and the name of the user', () => {
+          it('only finds the post', async () => {
+            variables = { query: '!panther' }
+            await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
+              data: {
+                searchResults: expect.not.arrayContaining([
+                  {
+                    __typename: 'User',
+                    id: 'f-user',
+                    name: 'Peter Panther',
+                    slug: 'peter-panther',
+                  },
+                  {
+                    __typename: 'Tag',
+                    id: 'Panther',
+                  },
+                ]),
+              },
+              errors: undefined,
+            })
+          })
+        })
+
+        describe('#query the word that contains the post, the hashtag and the name of the user', () => {
+          it('only finds the hashtag', async () => {
+            variables = { query: '#panther' }
+            await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
+              data: {
+                searchResults: expect.not.arrayContaining([
+                  {
+                    __typename: 'User',
+                    id: 'f-user',
+                    name: 'Peter Panther',
+                    slug: 'peter-panther',
+                  },
+                  {
+                    __typename: 'Post',
+                    id: 'd-post',
+                    title: 'Der Panther',
+                    content: `Sein Blick ist vom Vorübergehn der Stäbe<br>
+so müd geworden, daß er nichts mehr hält.<br>
+Ihm ist, als ob es tausend Stäbe gäbe<br>
+und hinter tausend Stäben keine Welt.`,
                   },
                 ]),
               },
@@ -440,7 +577,7 @@ und hinter tausend Stäben keine Welt.`,
             variables = { query: 'beitrag' }
             await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
               data: {
-                findResources: expect.not.arrayContaining([
+                searchResults: expect.not.arrayContaining([
                   {
                     __typename: 'Post',
                     id: 'muted-post',
@@ -465,12 +602,36 @@ und hinter tausend Stäben keine Welt.`,
             variables = { query: 'myha' }
             await expect(query({ query: searchQuery, variables })).resolves.toMatchObject({
               data: {
-                findResources: [
+                searchResults: [
                   {
                     __typename: 'Tag',
                     id: 'myHashtag',
                   },
                 ],
+              },
+              errors: undefined,
+            })
+          })
+        })
+      })
+
+      describe('searchPostQuery', () => {
+        describe('query with limit 1', () => {
+          it('has a count greater than 1', async () => {
+            variables = { query: 'beitrag', firstPosts: 1, postsOffset: 0 }
+            await expect(query({ query: searchPostQuery, variables })).resolves.toMatchObject({
+              data: {
+                searchPosts: {
+                  postCount: 2,
+                  posts: [
+                    {
+                      __typename: 'Post',
+                      id: 'a-post',
+                      title: 'Beitrag',
+                      content: 'Ein erster Beitrag',
+                    },
+                  ],
+                },
               },
               errors: undefined,
             })
